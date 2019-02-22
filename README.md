@@ -22,3 +22,30 @@ The program consists of a server and several clients.
 
 
 
+## How to use?
+
+### Examples
+
+#### Server
+
+``-p 1337 -b "D:/BlenderRenderFarm/coolblenderproject.blend" -w "D:/BlenderRenderFarm/workingDirectoryServer/"``
+
+-p is the server port
+
+-b is the blender file to be rendered
+
+-w is the workingDirectory of the server
+
+
+
+#### Client
+
+``-ip ::1 -p 1337 -b "C:/Program Files/Blender Foundation/Blender/blender.exe" -w "D:/BlenderRenderFarm/wokringDirectoryClient/"``
+
+-ip is the server ip
+
+-p is the server port
+
+-b is the blender.exe
+
+-w is the workingDirectory of the client

@@ -1,40 +1,41 @@
 package tk.icecreeper28.blenderrenderfarm.server;
 
+import org.apache.commons.io.FileUtils;
+import tk.icecreeper28.blenderrenderfarm.net.Packet;
+
+import javax.imageio.ImageIO;
 import java.io.*;
 import java.net.Socket;
 import java.net.SocketAddress;
 
 public class Connection extends Thread {
 
+    private Main main;
+
     private Socket clientSocket;
 
     private InputStream is;
     private OutputStream os;
 
-    private InputStreamReader isr;
-    private OutputStreamWriter osw;
-
-    private BufferedReader br;
-    private BufferedWriter bw;
+    private ObjectOutputStream oos;
+    private ObjectInputStream ois;
 
     private boolean isInitialized = false;
     private boolean isRunning = false;
 
     private SocketAddress address;
 
-    public Connection(Socket clientSocket) {
+    public Connection(Socket clientSocket, Main main) {
         super();
 
+        this.main = main;
         this.clientSocket = clientSocket;
         try {
             this.is = this.clientSocket.getInputStream();
             this.os = this.clientSocket.getOutputStream();
 
-            this.isr = new InputStreamReader(this.is);
-            this.osw = new OutputStreamWriter(this.os);
-
-            this.br = new BufferedReader(this.isr);
-            this.bw = new BufferedWriter(this.osw);
+            this.oos = new ObjectOutputStream(os);
+            this.ois = new ObjectInputStream(is);
 
             this.address = this.clientSocket.getRemoteSocketAddress();
         } catch (IOException e) {
@@ -54,27 +55,58 @@ public class Connection extends Thread {
         }
         super.run();
 
-        sendBytesToClient(new byte[] {90, 79, 79, 33});
-        sendTextToClient(" = new byte[] {90, 79, 79, 33}");
+        Packet blenderFilePacket = new Packet("blendFile", "byte[]");
+        blenderFilePacket
+                .addContent("blendFile", main.getBlenderFileBytes());
 
-        destroyConnection();
-    }
+        sendPacketToClient(blenderFilePacket);
 
-    public boolean sendTextToClient(String text) {
-        try {
-            this.bw.write(text + System.lineSeparator());
-            this.bw.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return false;
+        Packet renderFramePacket = new Packet("renderFrame", "int")
+                .addContent("frame", main.getNextFrame());
+
+        sendPacketToClient(renderFramePacket);
+
+        while (true) {
+            Packet packet = null;
+            try {
+                packet = (Packet) this.ois.readObject();
+            } catch (EOFException e) {
+                continue;
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+                continue;
+            }
+            log("Received packet " + packet.getPacketID() + " | Transmission time: " + (System.currentTimeMillis() - packet.getCreatedAt()) + "ms");
+
+            String contentName = packet.getHeader("Content");
+            String contentType = packet.getHeader("Content-Type");
+            log("Content: " + contentName + " | Content-Type: " + contentType);
+
+            if (contentName.equalsIgnoreCase("finishedFrame")) {
+                try {
+                    System.out.println("Writing to " + main.getWorkingDirPath() + "/frames/" + packet.getContent("fileName"));
+                    FileUtils.writeByteArrayToFile(new File(main.getWorkingDirPath() + "/frames/" + packet.getContent("fileName")), (byte[]) packet.getContent("frameImage"));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                renderFramePacket = new Packet("renderFrame", "int")
+                        .addContent("frame", main.getNextFrame());
+
+                sendPacketToClient(renderFramePacket);
+            }
         }
-        return true;
+
+//        destroyConnection();
     }
 
-    public boolean sendBytesToClient(byte[] bytes) {
+    public boolean sendPacketToClient(Packet packet) {
+        return sendObjectToClient(packet);
+    }
+
+    public boolean sendObjectToClient(Object object) {
         try {
-            this.os.write(bytes);
-            this.os.flush();
+            this.oos.writeObject(object);
+            this.oos.flush();
         } catch (IOException e) {
             e.printStackTrace();
             return false;
@@ -84,12 +116,6 @@ public class Connection extends Thread {
 
     public void destroyConnection() {
         try {
-            this.br.close();
-            this.bw.close();
-
-            this.isr.close();
-            this.osw.close();
-
             this.is.close();
             this.os.close();
 
