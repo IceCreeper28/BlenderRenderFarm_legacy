@@ -1,3 +1,6 @@
+# PROJECT DISCONTINUED
+I HAVE STOPPED WORKING ON THIS PROJECT AND TOGETHER WITH MY COLLEAGUE WE ARE CURRENTLY REBUILDING IT FROM SCRATCH OVER HERE: https://github.com/IceCreeper28/BlenderRenderFarm/
+
 # BlenderRenderFarm
 
 > This program is currently in a very early development step. Currently this repository exists only for me to not forget this project idea.
